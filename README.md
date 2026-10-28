@@ -2,6 +2,12 @@
 
 A macOS menu bar app that shows AI token usage and cost from local pi session logs.
 
+<p>
+  <img src="docs/dropdown.png" width="300" alt="TokenStatsBar menu bar item and dropdown with today's cost, a 14 day chart, period totals, cost by model and token breakdown">
+  &nbsp;
+  <img src="docs/about.png" width="300" alt="TokenStatsBar About popover explaining where the numbers come from">
+</p>
+
 The menu bar shows today's token count. Click it to open a dropdown with:
 
 - today's cost, tokens and requests, with a 14 day chart
