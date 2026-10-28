@@ -15,14 +15,17 @@ final class SessionLogIngestor: @unchecked Sendable {
     }
 
     let rootDirectory: URL
+    let source: UsageSource
     private(set) var states: [String: FileState] = [:]
     static let retentionDays = 31
 
-    init(rootDirectory: URL) {
+    init(rootDirectory: URL, source: UsageSource = .pi) {
         self.rootDirectory = rootDirectory
+        self.source = source
     }
 
-    /// Reads new bytes from every log file and returns the records of the last 31 days.
+    /// Reads new bytes from every log file and returns the records of the last 31 days. A response that a log
+    /// writes as several lines is returned once, with the largest token counts.
     func refresh(now: Date, calendar: Calendar) throws -> [UsageRecord] {
         let cutoff = calendar.date(byAdding: .day, value: -Self.retentionDays, to: calendar.startOfDay(for: now)) ?? .distantPast
         let paths = try logFilePaths(modifiedSince: cutoff)
@@ -33,7 +36,7 @@ final class SessionLogIngestor: @unchecked Sendable {
             states[path]?.records.removeAll { $0.date < cutoff }
             result.append(contentsOf: states[path]?.records ?? [])
         }
-        return result
+        return UsageRecord.deduplicated(result)
     }
 
     private func logFilePaths(modifiedSince cutoff: Date) throws -> Set<String> {
@@ -75,8 +78,10 @@ final class SessionLogIngestor: @unchecked Sendable {
             states[path] = state
             return
         }
-        let chunk = UsageParser.parseChunk(data)
+        let chunk = UsageParser.parseChunk(data, source: source)
         state.records.append(contentsOf: chunk.records)
+        // Claude Code repeats one response over several lines, so collapse them here to keep memory bounded.
+        state.records = UsageRecord.deduplicated(state.records)
         state.offset += UInt64(chunk.consumedByteCount)
         states[path] = state
     }

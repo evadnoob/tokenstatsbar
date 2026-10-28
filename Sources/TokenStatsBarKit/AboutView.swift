@@ -5,7 +5,7 @@ final class AboutPresentation: ObservableObject {
     @Published var isShown = false
 }
 
-/// Explains where the numbers come from. Shown in a popover from the info button in the dropdown footer.
+/// Explains where the numbers come from. Shown in a popover from the info button in the dropdown footer, or from the footer menu.
 struct AboutView: View {
     static let repositoryURL = URL(string: "https://github.com/evadnoob/tokenstatsbar")!
 
@@ -22,15 +22,20 @@ struct AboutView: View {
             Divider()
             item("Where the numbers come from",
                  "pi writes a session log for every conversation in ~/.pi/agent/sessions. "
-                 + "Each response from a model records its token counts and a cost.")
+                 + "Claude Code (the claude command line tool) writes transcripts in ~/.claude/projects and "
+                 + "~/.config/claude/projects. Each response records its token counts. "
+                 + "Claude Code writes several lines per response, and each response is counted once.")
             item("How cost is calculated",
-                 "pi calculates the cost when the response arrives, using its own price list for the model. "
-                 + "It is an estimate. Your provider's bill is the source of truth.")
+                 "All costs are API-equivalent: what the same usage would cost with an API key. "
+                 + "Subscriptions are billed differently. pi records a cost for each response. "
+                 + "For Claude Code the cost is computed from the price cache, a copy of the public LiteLLM "
+                 + "price list. Models missing from it are not priced.")
             item("What is counted",
-                 "Only requests made through pi. Usage from other tools, websites or subscriptions is not included.")
+                 "Only requests made through pi or Claude Code. Usage from other tools or websites is not included.")
             item("Privacy",
-                 "Only the token counts, cost, model, provider and time are read. Message content is never read, "
-                 + "stored or shown. Nothing is sent over the network, and no account or API key is needed.")
+                 "Only the token counts, model, provider and time are read. Message content is never read, "
+                 + "stored or shown. The only network request downloads the public LiteLLM price list. "
+                 + "No usage data is sent, and no account or API key is needed.")
             item("Updates",
                  "New log lines are read as they are written. Days use your local time zone. "
                  + "The last 31 days are kept in memory.")
