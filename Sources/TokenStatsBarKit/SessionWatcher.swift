@@ -1,17 +1,17 @@
 import CoreServices
 import Foundation
 
-/// Watches a directory tree with FSEvents and calls `onChange` on the main queue, debounced to one second.
+/// Watches directory trees with FSEvents and calls `onChange` on the main queue, debounced to one second.
 /// A repeating timer calls it every 60 seconds as a fallback.
 final class SessionWatcher {
-    private let directory: URL
+    private let directories: [URL]
     private let onChange: () -> Void
     private var stream: FSEventStreamRef?
     private var debounce: DispatchWorkItem?
     private var timer: Timer?
 
-    init(directory: URL, onChange: @escaping () -> Void) {
-        self.directory = directory
+    init(directories: [URL], onChange: @escaping () -> Void) {
+        self.directories = directories
         self.onChange = onChange
     }
 
@@ -24,7 +24,7 @@ final class SessionWatcher {
         }
         let flags = UInt32(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer)
         if let created = FSEventStreamCreate(
-            nil, callback, &context, [directory.path] as CFArray,
+            nil, callback, &context, directories.map(\.path) as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.2, flags) {
             stream = created
             FSEventStreamSetDispatchQueue(created, DispatchQueue.main)

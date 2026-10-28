@@ -29,13 +29,21 @@ struct DropdownView: View {
     private var todaySection: some View {
         let today = store.summary.today
         return VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(alignment: .top) {
                 Text("Today").font(.headline)
                 Spacer()
-                Text(UsageFormat.cost(today.cost)).font(.title2.weight(.semibold)).monospacedDigit()
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(UsageFormat.cost(today.cost)).font(.title2.weight(.semibold)).monospacedDigit()
+                    Text("API-equivalent").font(.caption).foregroundStyle(.secondary)
+                }
             }
             Text("\(UsageFormat.tokens(today.tokens)) tokens · \(UsageFormat.requests(today.requests))")
                 .font(.callout).foregroundStyle(.secondary)
+            if store.summary.unpricedRequestsToday > 0 {
+                Text("cost excludes \(store.summary.unpricedRequestsToday) unpriced "
+                     + (store.summary.unpricedRequestsToday == 1 ? "request" : "requests"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Chart(store.summary.daily, id: \.day) { item in
                 BarMark(x: .value("Day", item.day, unit: .day), y: .value("Cost", item.cost))
                     .foregroundStyle(DropdownView.dailyGradient)
@@ -66,15 +74,16 @@ struct DropdownView: View {
         let rows = UsageSummary.groupedModels(store.summary.modelsToday)
         let topCost = rows.first?.cost ?? 0
         return VStack(alignment: .leading, spacing: 6) {
-            Text("BY MODEL · TODAY").font(.caption).foregroundStyle(.secondary)
+            Text("BY PROVIDER/MODEL · TODAY").font(.caption).foregroundStyle(.secondary)
             if rows.isEmpty {
                 Text("No usage today").foregroundStyle(.secondary)
             }
-            ForEach(Array(rows.enumerated()), id: \.element.model) { index, row in
-                let color = DropdownView.modelColor(index: index, model: row.model)
+            ForEach(rows, id: \.name) { row in
+                let color = DropdownView.color(for: row)
                 HStack(spacing: 8) {
                     Circle().fill(color).frame(width: 7, height: 7)
-                    Text(row.model).lineLimit(1).truncationMode(.middle).frame(width: 110, alignment: .leading)
+                    Text(row.name).lineLimit(1).truncationMode(.middle).frame(width: 120, alignment: .leading)
+                        .help(row.name)
                     GeometryReader { proxy in
                         let fraction = topCost > 0 ? min(row.cost / topCost, 1) : 0
                         RoundedRectangle(cornerRadius: 2)
@@ -115,22 +124,63 @@ struct DropdownView: View {
             Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power") }
                 .buttonStyle(.borderless)
                 .help("Quit")
+            Menu {
+                Button("Refresh now") { store.refresh() }
+                PriceCacheMenu(controller: store.priceCache)
+                Button("About these numbers") {
+                    // A popover does not open while the menu is still closing, so wait for the menu to close.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { about.isShown = true }
+                }
+                Divider()
+                Button("Quit TokenStatsBar") { NSApplication.shared.terminate(nil) }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
     }
 
     /// Each daily bar fades from teal at the bottom to purple at the top.
     static let dailyGradient = LinearGradient(colors: [.teal, .blue, .purple], startPoint: .bottom, endPoint: .top)
 
-    /// Model rows are ordered by cost, so the color follows the rank. The "other" row is always gray.
-    static let modelPalette: [Color] = [.orange, .pink, .purple]
-
-    static func modelColor(index: Int, model: String) -> Color {
-        if model == UsageSummary.otherModelName { return .gray }
-        return modelPalette[index % modelPalette.count]
+    /// Rows take the color of their provider. The "other" row is always gray.
+    static func color(for row: ModelCost) -> Color {
+        guard let provider = row.provider else { return .gray }
+        switch UsageSummary.tint(forProvider: provider) {
+        case .orange: return .orange
+        case .green: return .green
+        case .blue: return .blue
+        case .pink: return .pink
+        case .purple: return .purple
+        case .gray: return .gray
+        }
     }
 
     private func updatedText(at date: Date) -> String {
         guard let updated = store.lastUpdated else { return "Not updated yet" }
         return "Updated " + UsageFormat.age(seconds: Int(date.timeIntervalSince(updated)))
+    }
+}
+
+/// The "Price cache" submenu of the footer menu.
+struct PriceCacheMenu: View {
+    @ObservedObject var controller: PriceCacheController
+
+    var body: some View {
+        Menu("Price cache") {
+            Text(controller.builtAt.map { "Updated " + $0.formatted(date: .abbreviated, time: .shortened) } ?? "Not built")
+            Text("\(controller.modelCount) models")
+            if let errorText = controller.errorText {
+                Text(errorText)
+            }
+            Button(controller.isRebuilding ? "Rebuilding..." : "Rebuild price cache") { controller.rebuild() }
+                .disabled(controller.isRebuilding)
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([controller.fileURL])
+            }
+            .disabled(controller.builtAt == nil)
+        }
     }
 }

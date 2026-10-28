@@ -57,12 +57,12 @@ enum UsageParser {
 
     /// Parses every complete (newline terminated) line in the data. `consumedByteCount` stops after the last
     /// newline, so an incomplete trailing line is left for the next read.
-    static func parseChunk(_ data: Data) -> (records: [UsageRecord], consumedByteCount: Int) {
+    static func parseChunk(_ data: Data, source: UsageSource = .pi) -> (records: [UsageRecord], consumedByteCount: Int) {
         guard let lastNewline = data.lastIndex(of: 0x0A) else { return ([], 0) }
         let complete = data[data.startIndex..<lastNewline]
         var records: [UsageRecord] = []
         for line in complete.split(separator: 0x0A, omittingEmptySubsequences: true) {
-            if let record = parse(line: Data(line)) { records.append(record) }
+            if let record = source.parse(line: Data(line)) { records.append(record) }
         }
         return (records, data.distance(from: data.startIndex, to: lastNewline) + 1)
     }
@@ -70,10 +70,24 @@ enum UsageParser {
     private static func timestamp(epochMilliseconds: Double?, iso: String?) -> Date? {
         if let epochMilliseconds { return Date(timeIntervalSince1970: epochMilliseconds / 1000) }
         guard let iso else { return nil }
+        return date(fromISO: iso)
+    }
+
+    /// ISO 8601 with or without fractional seconds.
+    static func date(fromISO iso: String) -> Date? {
+        fractionalSecondsFormatter.date(from: iso) ?? wholeSecondsFormatter.date(from: iso)
+    }
+
+    // ISO8601DateFormatter is thread safe, so the formatters are shared instead of built per line.
+    private static let fractionalSecondsFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: iso) { return date }
+        return formatter
+    }()
+
+    private static let wholeSecondsFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: iso)
-    }
+        return formatter
+    }()
 }
