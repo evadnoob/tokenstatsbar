@@ -1,0 +1,3 @@
+import TokenStatsBarKit
+
+TokenStatsBarApp.main()
