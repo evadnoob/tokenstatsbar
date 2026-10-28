@@ -71,8 +71,9 @@ The app keeps the prices of the anthropic, openai, gemini, vertex_ai, xai, mistr
 
    The app has no Dock icon. Look for the gauge icon and today's token count in the menu bar.
 
-3. Optional: to start the app at login, open System Settings, go to General, then Login Items, and add
-   `TokenStatsBar.app` under "Open at Login".
+3. Optional: to start the app at login, open the dropdown, click the `⋯` button and choose "Launch at login".
+   Install the app in `/Applications` first, because the login item points at the app where it is when you turn
+   the option on. You can also turn it off in System Settings, General, Login Items.
 
 ### Upgrade
 
@@ -89,7 +90,8 @@ The app keeps the prices of the anthropic, openai, gemini, vertex_ai, xai, mistr
     osascript -e 'quit app id "com.evadnoob.tokenstatsbar"'
     rm -rf /Applications/TokenStatsBar.app
 
-If you added it to Login Items, remove it there too. The app also writes the price cache (see Price cache). To
+If you turned on "Launch at login", turn it off in the `⋯` menu before you delete the app, or remove the app
+from System Settings, General, Login Items afterwards. The app also writes the price cache (see Price cache). To
 remove it:
 
     rm -rf ~/Library/Caches/com.evadnoob.tokenstatsbar

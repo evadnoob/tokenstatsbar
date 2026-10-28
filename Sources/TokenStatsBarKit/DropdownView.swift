@@ -5,6 +5,7 @@ struct DropdownView: View {
     @ObservedObject var store: UsageStore
     // The @State macro needs a compiler plugin that the Command Line Tools do not ship, so this uses an ObservableObject.
     @StateObject private var about = AboutPresentation()
+    @StateObject private var launchAtLogin = LaunchAtLoginController()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -24,6 +25,8 @@ struct DropdownView: View {
         }
         .padding(12)
         .frame(width: 300)
+        // The setting can also change in System Settings, so read it again each time the dropdown opens.
+        .onAppear { launchAtLogin.refresh() }
     }
 
     private var todaySection: some View {
@@ -127,6 +130,7 @@ struct DropdownView: View {
             Menu {
                 Button("Refresh now") { store.refresh() }
                 PriceCacheMenu(controller: store.priceCache)
+                LaunchAtLoginMenuItems(controller: launchAtLogin)
                 Button("About these numbers") {
                     // A popover does not open while the menu is still closing, so wait for the menu to close.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { about.isShown = true }
