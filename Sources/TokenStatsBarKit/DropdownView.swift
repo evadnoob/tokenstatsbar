@@ -3,9 +3,12 @@ import SwiftUI
 
 struct DropdownView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var details: UsageDetailsModel
+    @Environment(\.openWindow) private var openWindow
     // The @State macro needs a compiler plugin that the Command Line Tools do not ship, so this uses an ObservableObject.
     @StateObject private var about = AboutPresentation()
     @StateObject private var launchAtLogin = LaunchAtLoginController()
+    @StateObject private var rowHover = RowHover()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -97,6 +100,19 @@ struct DropdownView: View {
                     .frame(height: 14)
                     Text(UsageFormat.cost(row.cost)).monospacedDigit().frame(minWidth: 50, alignment: .trailing)
                 }
+                .background(RoundedRectangle(cornerRadius: 4)
+                    .fill(rowHover.hoveredName == row.name ? Color.primary.opacity(0.06) : Color.clear))
+                .contentShape(Rectangle())
+                .onHover { isHovering in
+                    if isHovering { rowHover.hoveredName = row.name } else if rowHover.hoveredName == row.name { rowHover.hoveredName = nil }
+                }
+                .onTapGesture {
+                    // The dropdown rows cover both sources, so show both and the clicked row is always visible.
+                    details.sourceFilter = .all
+                    details.drillProvider = row.provider
+                    details.hover.hoveredSliceID = nil
+                    showDetails(range: .today, selecting: row.isOther ? nil : row.name)
+                }
             }
         }
     }
@@ -131,6 +147,7 @@ struct DropdownView: View {
                 Button("Refresh now") { store.refresh() }
                 PriceCacheMenu(controller: store.priceCache)
                 LaunchAtLoginMenuItems(controller: launchAtLogin)
+                Button("Show details...") { showDetails(range: details.range, selecting: details.selectedRowID) }
                 Button("About these numbers") {
                     // A popover does not open while the menu is still closing, so wait for the menu to close.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { about.isShown = true }
@@ -159,6 +176,22 @@ struct DropdownView: View {
         case .pink: return .pink
         case .purple: return .purple
         case .gray: return .gray
+        }
+    }
+
+    private func showDetails(range: DetailsRange, selecting rowID: String?) {
+        details.range = range
+        details.selectedRowID = rowID
+        // The dropdown can close before the pointer leaves the row, so clear the hover highlight here.
+        rowHover.hoveredName = nil
+        openWindow(id: "usage-details")
+        NSApp.activate(ignoringOtherApps: true)
+        // An app without a Dock icon is often not allowed to become active, and then the window opens behind other
+        // apps. Ordering the window itself to the front works even when the app is not active.
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.title == UsageDetailsView.windowTitle }) else { return }
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
         }
     }
 

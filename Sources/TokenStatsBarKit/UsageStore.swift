@@ -1,11 +1,22 @@
 import Foundation
 import SwiftUI
 
+/// What one background refresh produces. It is applied on the main queue as a unit.
+struct IngestOutcome {
+    var summary: UsageSummary
+    var records: [UsageRecord]
+    var prices: [String: ModelPrice]
+}
+
 /// Owns the ingestors, the price cache and the watcher, and publishes the summary for the UI.
 /// File reading happens on a private queue.
 @MainActor
 public final class UsageStore: ObservableObject {
     @Published private(set) var summary = UsageSummary()
+    /// The deduplicated records of the last refresh, for the details window.
+    @Published private(set) var records: [UsageRecord] = []
+    /// The price models used for the last refresh.
+    @Published private(set) var prices: [String: ModelPrice] = [:]
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var errorText: String?
 
@@ -36,7 +47,7 @@ public final class UsageStore: ObservableObject {
         queue.async { [weak self] in
             let now = Date()
             let calendar = Calendar.current
-            let outcome: Result<UsageSummary, Error> = Result {
+            let outcome: Result<IngestOutcome, Error> = Result {
                 // A root that does not exist is normal, for example when only one of the tools is installed.
                 // It is an error only when no root can be read.
                 var records: [UsageRecord] = []
@@ -51,8 +62,10 @@ public final class UsageStore: ObservableObject {
                     }
                 }
                 if readableCount == 0, let firstError { throw firstError }
-                return UsageSummary.summarize(
-                    records: UsageRecord.deduplicated(records), prices: prices, now: now, calendar: calendar)
+                let deduplicated = UsageRecord.deduplicated(records)
+                let summary = UsageSummary.summarize(
+                    records: deduplicated, prices: prices, now: now, calendar: calendar)
+                return IngestOutcome(summary: summary, records: deduplicated, prices: prices)
             }
             DispatchQueue.main.async {
                 self?.apply(outcome, at: now)
@@ -60,10 +73,12 @@ public final class UsageStore: ObservableObject {
         }
     }
 
-    private func apply(_ outcome: Result<UsageSummary, Error>, at date: Date) {
+    private func apply(_ outcome: Result<IngestOutcome, Error>, at date: Date) {
         switch outcome {
         case .success(let value):
-            summary = value
+            summary = value.summary
+            records = value.records
+            prices = value.prices
             errorText = nil
         case .failure:
             errorText = "Cannot read session logs in ~/.pi/agent/sessions, ~/.claude/projects or ~/.config/claude/projects."
