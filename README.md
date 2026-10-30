@@ -23,6 +23,20 @@ model, provider and timestamp are read. Message content is never decoded, stored
 incrementally and watched with FSEvents, with a 60 second timer as a fallback. Records older than 31 days are not
 kept. The only network request downloads the public LiteLLM price list (see Price cache). No usage data is sent.
 
+## Usage details
+
+Click a row in the "by provider and model" section of the dropdown, or open the `⋯` menu and choose Show details...,
+to open the usage details window. Clicking a row opens the window drilled into that provider with the model selected
+and the range set to Today. The window shows one large sunburst: the inner ring is the providers and the outer ring is
+their models, sized by cost or by tokens (choose Cost or Tokens with the dollar and number buttons in the toolbar; models without a price have no slice in
+Cost). Hover a slice to see its value and share in the center, click a provider to drill into it, and click a model to
+select it. Click the center, the "All" breadcrumb or press Escape to go back up. The side panel lists the slices of the
+current level and shows the requests, token counts, cost, split by source and a 14 day sparkline of the selection.
+The Chart and Table toggle in the side panel switches the main area to a sortable table with requests, input, output,
+cache read, cache write, total tokens, cost and share for each provider and model; click a column header to sort.
+Choose the range (Today, 7 days, This month, 31 days) and the source (All, pi, Claude Code) at the top. The window
+updates when the dropdown data refreshes.
+
 ## Data sources
 
 - **pi**: `~/.pi/agent/sessions/**/*.jsonl`. pi records a cost for each response, and that cost is used.
